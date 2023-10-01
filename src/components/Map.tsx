@@ -99,5 +99,51 @@ export const Map: React.FC<MapProps> = ({
     }
   }, [polygons]);
 
+  useEffect(() => {
+    if (mapRef.current) {
+      // Create the search box and link it to the UI element
+      const searchBox = new google.maps.places.SearchBox(document.getElementById('pac-input') as HTMLInputElement);
+
+      // Bias the SearchBox results towards the current map's viewport
+      mapRef.current.addListener('bounds_changed', () => {
+        searchBox.setBounds(mapRef.current.getBounds() as google.maps.LatLngBounds);
+      });
+
+      let markers: google.maps.Marker[] = [];
+
+      searchBox.addListener('places_changed', () => {
+        const places = searchBox.getPlaces();
+
+        if (places.length === 0) return;
+
+        // Clear out the old markers
+        markers.forEach((marker) => marker.setMap(null));
+        markers = [];
+
+        // Set new markers for each place found
+        const bounds = new google.maps.LatLngBounds();
+        places.forEach((place) => {
+          if (!place.geometry || !place.geometry.location) return;
+
+          markers.push(
+            new google.maps.Marker({
+              map: mapRef.current,
+              title: place.name,
+              position: place.geometry.location,
+            }),
+          );
+
+          if (place.geometry.viewport) {
+            bounds.union(place.geometry.viewport);
+          } else {
+            bounds.extend(place.geometry.location);
+          }
+        });
+
+        mapRef.current.fitBounds(bounds);
+      });
+    }
+  }, [mapRef.current]);
+
   return <div ref={ref} id="map" style={{ width: '100%', height: '100%' }}></div>;
 };
