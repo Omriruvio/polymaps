@@ -10,7 +10,8 @@ interface MyMapProps {
 const MyMapComponent: React.FC<MyMapProps> = ({ center, zoom }) => {
   const ref = useRef(null);
   const mapRef = useRef<google.maps.Map>();
-  const [isDrawing, setIsDrawing] = useState(false);
+  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager>();
+  const [polygons, setPolygons] = useState<google.maps.Polygon[]>([]);
 
   useEffect(() => {
     if (!mapRef.current) {
@@ -20,37 +21,39 @@ const MyMapComponent: React.FC<MyMapProps> = ({ center, zoom }) => {
       });
     }
 
-    const drawingManager = new google.maps.drawing.DrawingManager({
-      drawingMode: google.maps.drawing.OverlayType.POLYGON,
-      drawingControl: isDrawing,
-      polygonOptions: {
-        clickable: true,
-        draggable: true,
-        editable: true,
-      },
-      map: mapRef.current,
-    });
-
-    drawingManager.addListener('polygoncomplete', (polygon: google.maps.Polygon) => {
-      console.log('polygoncomplete');
-      setIsDrawing(false);
-
-      polygon.addListener('click', (event: google.maps.PolyMouseEvent) => {
-        const {
-          domEvent,
-          latLng: { lat, lng },
-          edge,
-          path,
-          vertex,
-        } = event;
-        console.table({ lat: lat(), lng: lng(), edge, path, vertex });
-        console.log(domEvent.type);
-        if (domEvent.type === 'contextmenu') {
-          polygon.setMap(null);
-        }
+    if (!drawingManagerRef.current) {
+      drawingManagerRef.current = new google.maps.drawing.DrawingManager({
+        drawingMode: google.maps.drawing.OverlayType.POLYGON,
+        drawingControl: true,
+        polygonOptions: {
+          clickable: true,
+          draggable: true,
+          editable: true,
+        },
+        map: mapRef.current,
       });
-    });
-  }, []);
+
+      drawingManagerRef.current.addListener('polygoncomplete', (polygon: google.maps.Polygon) => {
+        setPolygons((prevPolygons) => [...prevPolygons, polygon]);
+        drawingManagerRef.current?.setDrawingMode(null);
+
+        polygon.addListener('click', (event: google.maps.PolyMouseEvent) => {
+          const {
+            domEvent,
+            latLng: { lat, lng },
+            edge,
+            path,
+            vertex,
+          } = event;
+          console.table({ lat: lat(), lng: lng(), edge, path, vertex });
+          console.log(domEvent.type);
+          if (domEvent.type === 'contextmenu') {
+            polygon.setMap(null);
+          }
+        });
+      });
+    }
+  }, [polygons]);
 
   return <div ref={ref} id="map" style={{ width: '100%', height: '100%' }}></div>;
 };
